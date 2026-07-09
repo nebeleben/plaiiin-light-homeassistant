@@ -4,13 +4,23 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import LamposClient, LamposError
-from .const import CONF_NODE, CONF_SHARE_KEY, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_NODE,
+    CONF_POLL_INTERVAL,
+    CONF_SHARE_KEY,
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_PORT,
+    DOMAIN,
+    MAX_POLL_INTERVAL,
+    MIN_POLL_INTERVAL,
+)
 
 USER_SCHEMA = vol.Schema(
     {
@@ -117,4 +127,67 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="discovery_confirm",
             description_placeholders={"name": self._node or "", "host": self._host or ""},
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]):
+        """Share key revoked, or an unclaimed lamp got claimed."""
+        entry = self._get_reauth_entry()
+        self._host = entry.data[CONF_HOST]
+        self._port = entry.data.get(CONF_PORT, DEFAULT_PORT)
+        self._node = entry.data.get(CONF_NODE, entry.title)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Ask for and validate a replacement share key."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            key = user_input[CONF_SHARE_KEY]
+            try:
+                whoami = await self._client(key).get_whoami()
+            except LamposError:
+                errors["base"] = "cannot_connect"
+            else:
+                if whoami.role != "none":
+                    return self.async_update_reload_and_abort(
+                        self._get_reauth_entry(),
+                        data_updates={CONF_SHARE_KEY: key},
+                    )
+                errors["base"] = "invalid_share_key"
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=SHARE_KEY_SCHEMA,
+            description_placeholders={"name": self._node or ""},
+            errors=errors,
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Poll-interval options."""
+        return PlaiiinLightOptionsFlow()
+
+
+class PlaiiinLightOptionsFlow(OptionsFlow):
+    """Options: poll interval."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_POLL_INTERVAL,
+                        default=self.config_entry.options.get(
+                            CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
+                        ),
+                    ): vol.All(
+                        vol.Coerce(int),
+                        vol.Range(min=MIN_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
+                    ),
+                }
+            ),
         )

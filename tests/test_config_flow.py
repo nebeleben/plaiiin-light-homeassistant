@@ -6,8 +6,14 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.plaiiinlight.const import CONF_NODE, CONF_SHARE_KEY, DOMAIN
+from custom_components.plaiiinlight.const import (
+    CONF_NODE,
+    CONF_POLL_INTERVAL,
+    CONF_SHARE_KEY,
+    DOMAIN,
+)
 
 from .conftest import (
     BASE,
@@ -18,6 +24,7 @@ from .conftest import (
     WHOAMI_UNPAIRED,
     WHOAMI_USER,
     mock_lamp_api,
+    setup_entry,
 )
 
 
@@ -164,3 +171,70 @@ async def test_zeroconf_known_lamp_aborts_and_updates_host(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert config_entry.data[CONF_HOST] == "192.168.1.99"
+
+
+async def test_reauth_flow_replaces_share_key(hass, aioclient_mock):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=NODE,
+        title=NODE,
+        data={
+            CONF_HOST: HOST,
+            CONF_PORT: 80,
+            CONF_NODE: NODE,
+            CONF_SHARE_KEY: "PLK-old",
+        },
+    )
+    entry.add_to_hass(hass)
+    mock_lamp_api(aioclient_mock, whoami=WHOAMI_USER)
+
+    result = await entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SHARE_KEY: "PLK-new"}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_SHARE_KEY] == "PLK-new"
+
+
+async def test_reauth_rejected_key_shows_error(hass, aioclient_mock):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=NODE,
+        title=NODE,
+        data={
+            CONF_HOST: HOST,
+            CONF_PORT: 80,
+            CONF_NODE: NODE,
+            CONF_SHARE_KEY: "PLK-old",
+        },
+    )
+    entry.add_to_hass(hass)
+    mock_lamp_api(aioclient_mock, whoami=WHOAMI_NONE)
+
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SHARE_KEY: "PLK-bad"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_share_key"}
+
+
+async def test_options_flow_sets_poll_interval(hass, aioclient_mock, config_entry):
+    mock_lamp_api(aioclient_mock)
+    await setup_entry(hass, config_entry)
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_POLL_INTERVAL: 30}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert config_entry.options == {CONF_POLL_INTERVAL: 30}
+    # options update listener reloaded the entry with the new interval
+    assert config_entry.runtime_data.update_interval.total_seconds() == 30
