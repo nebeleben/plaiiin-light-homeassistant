@@ -93,10 +93,9 @@ class PlaiiinLightLight(CoordinatorEntity[PlaiiinLightCoordinator], LightEntity)
             elif effect is not None:
                 await client.play_effect(effect)
             if hs is not None:
-                # A color change means "show this color": leave js/stream mode
-                # first. An explicit effect in the same call wins over this.
-                if effect is None and state.mode != MODE_API:
-                    await client.set_mode(MODE_API)
+                # Color only sets the lamp's baseColor — never the mode. A
+                # running effect keeps playing; selecting the "Solid" effect
+                # is the explicit way to show the color full-screen.
                 await client.set_color(
                     color_hs_to_RGB(*hs), self.coordinator.device.led_count
                 )

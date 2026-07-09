@@ -71,16 +71,21 @@ async def test_turn_on_powers_on_when_off(hass, aioclient_mock, config_entry):
     assert calls_to(aioclient_mock, "/api/power")[-1][2] == {"on": True}
 
 
-async def test_color_from_js_mode_switches_to_api_first(hass, aioclient_mock, config_entry):
+async def test_color_from_js_mode_never_changes_mode(hass, aioclient_mock, config_entry):
+    """A color write only sets the base color — a running effect keeps playing."""
     mock_lamp_api(aioclient_mock, state={**STATE_JSON, "mode": "js", "current": "aurora"})
     await setup_entry(hass, config_entry)
     await turn_on(hass, **{ATTR_HS_COLOR: (240.0, 100.0)})
-    assert calls_to(aioclient_mock, "/api/mode")[-1][2] == {"mode": "api"}
     assert calls_to(aioclient_mock, "/api/color")[-1][2] == {"colors": [[0, 0, 255]] * 4}
-    write_paths = [
-        call[1].path for call in aioclient_mock.mock_calls if call[0] in ("POST", "PUT")
-    ]
-    assert write_paths.index("/api/mode") < write_paths.index("/api/color")
+    assert not calls_to(aioclient_mock, "/api/mode")
+
+
+async def test_brightness_from_js_mode_never_changes_mode(hass, aioclient_mock, config_entry):
+    mock_lamp_api(aioclient_mock, state={**STATE_JSON, "mode": "js", "current": "aurora"})
+    await setup_entry(hass, config_entry)
+    await turn_on(hass, **{ATTR_BRIGHTNESS: 42})
+    assert calls_to(aioclient_mock, "/api/brightness")[-1][2] == {"brightness": 42}
+    assert not calls_to(aioclient_mock, "/api/mode")
 
 
 async def test_color_in_api_mode_skips_mode_call(hass, aioclient_mock, config_entry):
@@ -114,8 +119,8 @@ async def test_set_brightness(hass, aioclient_mock, config_entry):
     assert calls_to(aioclient_mock, "/api/brightness")[-1][2] == {"brightness": 255}
 
 
-async def test_effect_with_color_skips_mode_switch(hass, aioclient_mock, config_entry):
-    """An explicit effect wins: the color write must not force api mode."""
+async def test_effect_with_color_plays_and_sets_base_color(hass, aioclient_mock, config_entry):
+    """Effect and color in one call: play the effect, set the base color."""
     mock_lamp_api(aioclient_mock, state={**STATE_JSON, "mode": "js", "current": "sparkle"})
     await setup_entry(hass, config_entry)
     await turn_on(hass, **{ATTR_EFFECT: "aurora", ATTR_HS_COLOR: (240.0, 100.0)})

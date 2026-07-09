@@ -33,7 +33,8 @@ onboard it first).
 One light entity per lamp with:
 
 - On/off (does not interrupt a running effect)
-- Color (switches the lamp to solid-color mode)
+- Color (sets the lamp's base color; a running effect keeps playing — pick
+  the **Solid** effect to show the color plainly)
 - Brightness
 - Effect dropdown: **Solid** plus every effect on the lamp
 
