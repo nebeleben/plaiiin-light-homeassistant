@@ -1,0 +1,50 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Add PlaiiinLight lamp",
+        "description": "Enter the lamp's address. The lamp must already be on your network.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      },
+      "share_key": {
+        "title": "Share key required",
+        "description": "{name} is claimed by an owner. Enter a share key minted by the owner (role \"user\" is enough).",
+        "data": {
+          "share_key": "Share key"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Add PlaiiinLight lamp",
+        "description": "Add the unclaimed lamp {name} ({host})?"
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate lamp",
+        "description": "The share key for {name} was rejected (revoked, or the lamp was claimed). Enter a new share key.",
+        "data": {
+          "share_key": "Share key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the lamp",
+      "invalid_share_key": "The lamp rejected this share key"
+    },
+    "abort": {
+      "already_configured": "This lamp is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "poll_interval": "Poll interval (seconds)"
+        }
+      }
+    }
+  }
+}

@@ -1,20 +1,92 @@
-"""Placeholder config flow handler.
-
-HA core requires a `ConfigFlow` registered for `DOMAIN` before it will set up
-*any* config entry for an integration whose manifest declares
-`config_flow: true` (see `ConfigEntry.async_setup`, which unconditionally
-imports the `config_flow` platform and looks up a registered flow handler for
-the entry's domain). This is a minimal stand-in with no steps implemented;
-the real user/reauth/options flows are built out in a later task.
-"""
+"""Config flow for the PlaiiinLight integration."""
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigFlow
+from typing import Any
 
-from .const import DOMAIN
+import voluptuous as vol
+from homeassistant.config_entries import ConfigFlow
+from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .api import LamposClient, LamposError
+from .const import CONF_NODE, CONF_SHARE_KEY, DEFAULT_PORT, DOMAIN
+
+USER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+    }
+)
+SHARE_KEY_SCHEMA = vol.Schema({vol.Required(CONF_SHARE_KEY): str})
 
 
 class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Placeholder config flow; steps are implemented in a later task."""
+    """Handle manual and discovered lamp setup."""
 
     VERSION = 1
+
+    def __init__(self) -> None:
+        self._host: str | None = None
+        self._port: int = DEFAULT_PORT
+        self._node: str | None = None
+
+    def _client(self, share_key: str | None = None) -> LamposClient:
+        return LamposClient(
+            async_get_clientsession(self.hass), self._host, self._port, share_key
+        )
+
+    def _entry_data(self, share_key: str | None = None) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            CONF_HOST: self._host,
+            CONF_PORT: self._port,
+            CONF_NODE: self._node,
+        }
+        if share_key:
+            data[CONF_SHARE_KEY] = share_key
+        return data
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        """Manual add by host."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._host = user_input[CONF_HOST]
+            self._port = user_input[CONF_PORT]
+            try:
+                device = await self._client().get_device()
+                whoami = await self._client().get_whoami()
+            except LamposError:
+                errors["base"] = "cannot_connect"
+            else:
+                self._node = device.node_name
+                await self.async_set_unique_id(self._node)
+                self._abort_if_unique_id_configured(
+                    updates={CONF_HOST: self._host, CONF_PORT: self._port}
+                )
+                if whoami.paired and whoami.role == "none":
+                    return await self.async_step_share_key()
+                return self.async_create_entry(title=self._node, data=self._entry_data())
+        return self.async_show_form(
+            step_id="user", data_schema=USER_SCHEMA, errors=errors
+        )
+
+    async def async_step_share_key(self, user_input: dict[str, Any] | None = None):
+        """Ask for a share key on a claimed lamp; validate via whoami."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            key = user_input[CONF_SHARE_KEY]
+            try:
+                whoami = await self._client(key).get_whoami()
+            except LamposError:
+                errors["base"] = "cannot_connect"
+            else:
+                if whoami.role != "none":
+                    return self.async_create_entry(
+                        title=self._node, data=self._entry_data(key)
+                    )
+                errors["base"] = "invalid_share_key"
+        return self.async_show_form(
+            step_id="share_key",
+            data_schema=SHARE_KEY_SCHEMA,
+            description_placeholders={"name": self._node or ""},
+            errors=errors,
+        )
