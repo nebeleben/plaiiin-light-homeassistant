@@ -1,8 +1,9 @@
 # PlaiiinLight for Home Assistant
 
-Control [PlaiiinLight](https://plaiiin.com) lamps from Home Assistant:
+Control [PlaiiinLight](https://plaiiin-light.com) lamps from Home Assistant:
 on/off, solid color, brightness, and the lamp's effects — all over your
-local network (HTTP, no cloud).
+local network (HTTP, no cloud). The lamps run the open-source
+[PlaiiinLightOS](https://github.com/nebeleben/plaiiin-light) firmware.
 
 ## Installation (HACS)
 
@@ -41,15 +42,7 @@ One light entity per lamp with:
 *Settings → Devices & Services → PlaiiinLight → Configure*: poll interval
 (default 10 s).
 
-## Development
-
-This repository is a read-only mirror of the `homeassistant/` subproject in
-the PlaiiinLight monorepo — every change lands here automatically. Bug
-reports and feature requests are welcome in this repo's issues; pull
-requests can't be merged here directly (the next mirror sync would
-overwrite them), but patches attached to an issue will be ported.
-
 ## License
 
 Apache-2.0. The integration talks to the lamp's open, documented HTTP API
-from the [PlaiiinLightOS](https://plaiiin.com) firmware project.
+from the [PlaiiinLightOS firmware](https://github.com/nebeleben/plaiiin-light).
