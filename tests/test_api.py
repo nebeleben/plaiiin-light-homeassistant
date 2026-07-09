@@ -99,3 +99,9 @@ async def test_network_error_raises_connection_error(hass, aioclient_mock):
     aioclient_mock.get(f"{BASE}/api/state", exc=aiohttp.ClientError("boom"))
     with pytest.raises(LamposConnectionError):
         await make_client(hass).get_state()
+
+
+async def test_malformed_json_raises_connection_error(hass, aioclient_mock):
+    aioclient_mock.get(f"{BASE}/api/state", text="not json")
+    with pytest.raises(LamposConnectionError):
+        await make_client(hass).get_state()

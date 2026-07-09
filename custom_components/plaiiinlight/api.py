@@ -89,8 +89,10 @@ class LamposClient:
                     raise LamposConnectionError(f"{path} returned {resp.status}")
                 try:
                     return await resp.json(content_type=None)
-                except ValueError:
-                    return None
+                except ValueError as err:
+                    raise LamposConnectionError(
+                        f"{path}: invalid JSON response"
+                    ) from err
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
             raise LamposConnectionError(f"{path}: {err}") from err
 
