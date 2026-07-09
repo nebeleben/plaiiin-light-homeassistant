@@ -9,7 +9,7 @@ from .api import LamposClient
 from .const import CONF_SHARE_KEY, DEFAULT_PORT
 from .coordinator import PlaiiinLightConfigEntry, PlaiiinLightCoordinator
 
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [Platform.LIGHT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PlaiiinLightConfigEntry) -> bool:
