@@ -1,4 +1,6 @@
 """Tests for the light entity."""
+import aiohttp
+import pytest
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_EFFECT,
@@ -14,8 +16,9 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
     STATE_ON,
 )
+from homeassistant.exceptions import HomeAssistantError
 
-from .conftest import STATE_JSON, mock_lamp_api, setup_entry
+from .conftest import BASE, STATE_JSON, mock_lamp_api, setup_entry
 
 ENTITY = "light.plaiiinlight_tower"
 
@@ -109,3 +112,31 @@ async def test_set_brightness(hass, aioclient_mock, config_entry):
     await setup_entry(hass, config_entry)
     await turn_on(hass, **{ATTR_BRIGHTNESS: 255})
     assert calls_to(aioclient_mock, "/api/brightness")[-1][2] == {"brightness": 255}
+
+
+async def test_effect_with_color_skips_mode_switch(hass, aioclient_mock, config_entry):
+    """An explicit effect wins: the color write must not force api mode."""
+    mock_lamp_api(aioclient_mock, state={**STATE_JSON, "mode": "js", "current": "sparkle"})
+    await setup_entry(hass, config_entry)
+    await turn_on(hass, **{ATTR_EFFECT: "aurora", ATTR_HS_COLOR: (240.0, 100.0)})
+    assert calls_to(aioclient_mock, "/api/play")[-1][2] == {"file": "aurora"}
+    assert calls_to(aioclient_mock, "/api/color")
+    assert not calls_to(aioclient_mock, "/api/mode")
+
+
+async def test_failed_write_raises_and_skips_refresh(hass, aioclient_mock, config_entry):
+    """A lamp error surfaces as HomeAssistantError and no refresh follows."""
+    mock_lamp_api(aioclient_mock)
+    await setup_entry(hass, config_entry)
+    # First-registered matcher wins in AiohttpClientMocker: re-register with
+    # the failing power endpoint ahead of the working mocks.
+    aioclient_mock.clear_requests()
+    aioclient_mock.post(f"{BASE}/api/power", exc=aiohttp.ClientError("boom"))
+    mock_lamp_api(aioclient_mock)
+    state_calls_before = len(calls_to(aioclient_mock, "/api/state"))
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            LIGHT_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY}, blocking=True
+        )
+    await hass.async_block_till_done()
+    assert len(calls_to(aioclient_mock, "/api/state")) == state_calls_before
