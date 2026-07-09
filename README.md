@@ -15,7 +15,7 @@ Or manually: HACS → Integrations → ⋮ → *Custom repositories* → add
 ## Adding a lamp
 
 The lamp must already be set up on your Wi‑Fi (use the PlaiiinLight app to
-onboard it first).
+onboard it first).  
 
 - **Unclaimed lamp** (nobody has claimed it in the app): it shows up
   automatically under *Settings → Devices & Services* as a discovered
