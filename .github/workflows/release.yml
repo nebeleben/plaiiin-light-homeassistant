@@ -1,0 +1,42 @@
+name: release
+
+# Tag vX.Y.Z in THIS (public) repo -> test, stamp X.Y.Z into manifest.json,
+# build plaiiinlight.zip and attach it to the GitHub release. HACS installs
+# the zip (hacs.json: zip_release + filename), so the version bump never
+# needs a commit — the repo's manifest.json keeps a placeholder version.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Test
+        run: |
+          pip install -r requirements-dev.txt
+          ruff check .
+          python -m pytest tests -v
+      - name: Build zip with stamped version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST=custom_components/plaiiinlight/manifest.json
+          jq --arg v "$VERSION" '.version = $v' "$MANIFEST" > /tmp/manifest.json
+          mv /tmp/manifest.json "$MANIFEST"
+          cd custom_components/plaiiinlight
+          zip -r /tmp/plaiiinlight.zip . -x '*__pycache__*' -x '*.pyc'
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" /tmp/plaiiinlight.zip \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

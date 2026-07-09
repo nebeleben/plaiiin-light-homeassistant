@@ -41,6 +41,14 @@ One light entity per lamp with:
 *Settings → Devices & Services → PlaiiinLight → Configure*: poll interval
 (default 10 s).
 
+## Development
+
+This repository is a read-only mirror of the `homeassistant/` subproject in
+the PlaiiinLight monorepo — every change lands here automatically. Bug
+reports and feature requests are welcome in this repo's issues; pull
+requests can't be merged here directly (the next mirror sync would
+overwrite them), but patches attached to an issue will be ported.
+
 ## License
 
 Apache-2.0. The integration talks to the lamp's open, documented HTTP API
