@@ -1,9 +1,12 @@
 name: release
 
-# Tag vX.Y.Z in THIS (public) repo -> test, stamp X.Y.Z into manifest.json,
-# build plaiiinlight.zip and attach it to the GitHub release. HACS installs
-# the zip (hacs.json: zip_release + filename), so the version bump never
-# needs a commit — the repo's manifest.json keeps a placeholder version.
+# Fires when the monorepo's homeassistant-mirror workflow forwards a
+# release tag: ha-vX.Y.Z in the monorepo becomes vX.Y.Z here. Tests, stamps
+# X.Y.Z into manifest.json, builds plaiiinlight.zip and attaches it to the
+# GitHub release. HACS installs the zip (hacs.json: zip_release + filename),
+# so the version bump never needs a commit — the repo's manifest.json keeps
+# a placeholder version. Re-pushing the same monorepo tag recreates the
+# release (repair path for a failed run).
 
 on:
   push:
@@ -37,6 +40,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Recreate on re-run so a re-pushed tag can repair a failed release.
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && \
+            gh release delete "$GITHUB_REF_NAME" -y
           gh release create "$GITHUB_REF_NAME" /tmp/plaiiinlight.zip \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
