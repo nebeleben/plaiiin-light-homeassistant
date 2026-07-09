@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import LamposClient, LamposError
 from .const import CONF_NODE, CONF_SHARE_KEY, DEFAULT_PORT, DOMAIN
@@ -89,4 +90,31 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=SHARE_KEY_SCHEMA,
             description_placeholders={"name": self._node or ""},
             errors=errors,
+        )
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo):
+        """A lamp announced itself via mDNS."""
+        node = discovery_info.properties.get("node") or discovery_info.name.split(".")[0]
+        self._host = discovery_info.host
+        self._port = discovery_info.port or DEFAULT_PORT
+        self._node = node
+        await self.async_set_unique_id(node)
+        self._abort_if_unique_id_configured(
+            updates={CONF_HOST: self._host, CONF_PORT: self._port}
+        )
+        self.context["title_placeholders"] = {"name": node}
+        if discovery_info.properties.get("paired") == "1":
+            return await self.async_step_share_key()
+        return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Confirm-only add for an unclaimed discovered lamp."""
+        if user_input is not None:
+            return self.async_create_entry(title=self._node, data=self._entry_data())
+        self._set_confirm_only()
+        return self.async_show_form(
+            step_id="discovery_confirm",
+            description_placeholders={"name": self._node or "", "host": self._host or ""},
         )

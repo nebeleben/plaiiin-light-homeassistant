@@ -1,8 +1,11 @@
 """Tests for the config flow."""
+from ipaddress import ip_address
+
 import aiohttp
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from custom_components.plaiiinlight.const import CONF_NODE, CONF_SHARE_KEY, DOMAIN
 
@@ -94,6 +97,70 @@ async def test_user_flow_duplicate_aborts_and_updates_host(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_HOST: "192.168.1.99", CONF_PORT: 80}
     )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert config_entry.data[CONF_HOST] == "192.168.1.99"
+
+
+def zeroconf_info(paired: str = "0", host: str = HOST) -> ZeroconfServiceInfo:
+    return ZeroconfServiceInfo(
+        ip_address=ip_address(host),
+        ip_addresses=[ip_address(host)],
+        hostname=f"{NODE}.local.",
+        name=f"{NODE}._plaiiinlight._tcp.local.",
+        port=80,
+        type="_plaiiinlight._tcp.local.",
+        properties={
+            "vendor": "plaiiin",
+            "node": NODE,
+            "fw": "1.9.10",
+            "api": "1",
+            "lamp": "tower",
+            "path": "/",
+            "paired": paired,
+        },
+    )
+
+
+async def start_zeroconf_flow(hass, info: ZeroconfServiceInfo):
+    return await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
+    )
+
+
+async def test_zeroconf_unclaimed_is_confirm_only(hass, aioclient_mock):
+    mock_lamp_api(aioclient_mock)
+    result = await start_zeroconf_flow(hass, zeroconf_info(paired="0"))
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == NODE
+    assert result["data"] == {CONF_HOST: HOST, CONF_PORT: 80, CONF_NODE: NODE}
+    assert CONF_SHARE_KEY not in result["data"]
+
+
+async def test_zeroconf_paired_asks_share_key(hass, aioclient_mock):
+    mock_lamp_api(aioclient_mock, whoami=WHOAMI_USER)
+    result = await start_zeroconf_flow(hass, zeroconf_info(paired="1"))
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "share_key"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SHARE_KEY: "PLK-abc"}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_SHARE_KEY] == "PLK-abc"
+
+
+async def test_zeroconf_known_lamp_aborts_and_updates_host(
+    hass, aioclient_mock, config_entry
+):
+    config_entry.add_to_hass(hass)
+    result = await start_zeroconf_flow(hass, zeroconf_info(host="192.168.1.99"))
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert config_entry.data[CONF_HOST] == "192.168.1.99"
