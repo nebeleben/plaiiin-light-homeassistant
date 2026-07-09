@@ -57,6 +57,13 @@ class PlaiiinLightCoordinator(DataUpdateCoordinator[LampState]):
 
     async def _async_update_data(self) -> LampState:
         try:
+            if self.device is None or not self.last_update_success:
+                # Recovering from a prior failure (or first update after
+                # setup never completed device/effects): the lamp may have
+                # rebooted or its effect list may have changed while it was
+                # unreachable, so refresh both before polling state.
+                self.device = await self.client.get_device()
+                self.effects = await self.client.list_effects()
             return await self.client.get_state()
         except LamposAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err

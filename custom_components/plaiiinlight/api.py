@@ -68,7 +68,8 @@ class LamposClient:
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
         self._session = session
-        self._base = f"http://{host}:{port}"
+        host_part = f"[{host}]" if ":" in host else host
+        self._base = f"http://{host_part}:{port}"
         self._share_key = share_key
         self._timeout = timeout
 
@@ -80,19 +81,19 @@ class LamposClient:
             headers["Authorization"] = f"Bearer {self._share_key}"
         try:
             async with asyncio.timeout(self._timeout):
-                resp = await self._session.request(
+                async with self._session.request(
                     method, f"{self._base}{path}", json=json, headers=headers
-                )
-                if resp.status in (401, 403):
-                    raise LamposAuthError(f"{path} returned {resp.status}")
-                if resp.status >= 400:
-                    raise LamposConnectionError(f"{path} returned {resp.status}")
-                try:
-                    return await resp.json(content_type=None)
-                except ValueError as err:
-                    raise LamposConnectionError(
-                        f"{path}: invalid JSON response"
-                    ) from err
+                ) as resp:
+                    if resp.status in (401, 403):
+                        raise LamposAuthError(f"{path} returned {resp.status}")
+                    if resp.status >= 400:
+                        raise LamposConnectionError(f"{path} returned {resp.status}")
+                    try:
+                        return await resp.json(content_type=None)
+                    except ValueError as err:
+                        raise LamposConnectionError(
+                            f"{path}: invalid JSON response"
+                        ) from err
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
             raise LamposConnectionError(f"{path}: {err}") from err
 
@@ -128,6 +129,8 @@ class LamposClient:
         await self._request("POST", "/api/brightness", json={"brightness": brightness})
 
     async def set_color(self, rgb: tuple[int, int, int], led_count: int) -> None:
+        if led_count <= 0:
+            raise LamposConnectionError("/api/color: unknown led count")
         await self._request("POST", "/api/color", json={"colors": [list(rgb)] * led_count})
 
     async def set_mode(self, mode: str) -> None:

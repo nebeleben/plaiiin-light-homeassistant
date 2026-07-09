@@ -105,3 +105,18 @@ async def test_malformed_json_raises_connection_error(hass, aioclient_mock):
     aioclient_mock.get(f"{BASE}/api/state", text="not json")
     with pytest.raises(LamposConnectionError):
         await make_client(hass).get_state()
+
+
+async def test_ipv6_host_is_bracketed_in_url(hass, aioclient_mock):
+    aioclient_mock.get("http://[fd00::1]:80/api/state", json=STATE_JSON)
+    client = LamposClient(async_get_clientsession(hass), "fd00::1")
+    state = await client.get_state()
+    assert state.on is True
+
+
+async def test_set_color_with_unknown_led_count_raises_without_request(
+    hass, aioclient_mock
+):
+    with pytest.raises(LamposConnectionError):
+        await make_client(hass).set_color((1, 2, 3), 0)
+    assert not aioclient_mock.mock_calls

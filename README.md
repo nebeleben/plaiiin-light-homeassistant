@@ -43,6 +43,5 @@ One light entity per lamp with:
 
 ## License
 
-Apache-2.0. The integration talks to the lamp's open, documented HTTP API;
-firmware and API specs live in the
-[PlaiiinLightOS](https://github.com/nebeleben/plaiiinlightOS) project.
+Apache-2.0. The integration talks to the lamp's open, documented HTTP API
+from the [PlaiiinLightOS](https://plaiiin.com) firmware project.
