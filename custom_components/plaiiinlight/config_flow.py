@@ -8,7 +8,13 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+
+try:
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+except ImportError:
+    # HA 2025.1 (our declared minimum): the helpers module only exists
+    # since 2025.2 — fall back to the pre-move location.
+    from homeassistant.components.zeroconf import ZeroconfServiceInfo
 
 from .api import LamposClient, LamposError
 from .const import (
