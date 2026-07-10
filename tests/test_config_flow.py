@@ -5,9 +5,11 @@ import aiohttp
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+# Via the integration's fallback import so the suite also runs on HA 2025.1,
+# where homeassistant.helpers.service_info.zeroconf doesn't exist yet.
+from custom_components.plaiiinlight.config_flow import ZeroconfServiceInfo
 from custom_components.plaiiinlight.const import (
     CONF_NODE,
     CONF_POLL_INTERVAL,

@@ -1,0 +1,12 @@
+# Declared-minimum compatibility leg (hacs.json "homeassistant": "2025.1.0").
+# Run on Python 3.12 — HA 2025.1 does not support 3.14.
+#
+# pytest-homeassistant-custom-component releases pin exactly one HA version;
+# 0.13.201 pins homeassistant==2025.1.0.
+pytest-homeassistant-custom-component==0.13.201
+# Real HA installs ship the zeroconf lib (core dependency); the test plugin
+# doesn't pull component deps. Pin from HA 2025.1.0's zeroconf manifest.
+zeroconf==0.136.2
+# Modern pycares (5.x) spawns a shutdown-watcher thread that 0.13.201's
+# thread-leak teardown check doesn't allowlist; pin the 2025.1-era version.
+pycares==4.4.0

@@ -25,11 +25,24 @@ jobs:
       - uses: home-assistant/actions/hassfest@master
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Latest HA (floats via requirements-dev.txt).
+          - python-version: '3.14'
+            requirements: requirements-dev.txt
+            lint: true
+          # Declared minimum (hacs.json): HA 2025.1.0.
+          - python-version: '3.12'
+            requirements: requirements-min.txt
+            lint: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check .
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r ${{ matrix.requirements }}
+      - if: ${{ matrix.lint }}
+        run: ruff check .
       - run: python -m pytest tests -v
