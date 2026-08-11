@@ -1,4 +1,8 @@
-# PlaiiinLight for Home Assistant
+<p align="center">
+  <img src="https://raw.githubusercontent.com/nebeleben/plaiiin-light-homeassistant/main/branding/icon.png" width="88" height="88" alt="PlaiiinLight logo">
+</p>
+
+<h1 align="center">PlaiiinLight for Home Assistant</h1>
 
 Control [PlaiiinLight](https://plaiiin-light.com) lamps from Home Assistant:
 on/off, solid color, brightness, and the lamp's effects — all over your
