@@ -13,9 +13,12 @@ local network (HTTP, no cloud). The lamps run the open-source
 
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nebeleben&repository=plaiiin-light-homeassistant&category=integration)
 
-Or manually: HACS → Integrations → ⋮ → *Custom repositories* → add
-`https://github.com/nebeleben/plaiiin-light-homeassistant` (category
-*Integration*), then install **PlaiiinLight** and restart Home Assistant.
+Or search for **PlaiiinLight** in HACS → Integrations (it is in the HACS
+default store), install it and restart Home Assistant.
+
+Requires Home Assistant 2025.1 or newer. The PlaiiinLight icon ships inside
+the integration and only shows on Home Assistant 2026.3 or newer — older
+versions display the generic placeholder icon; everything else works the same.
 
 ## Adding a lamp
 
