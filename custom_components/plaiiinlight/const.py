@@ -5,6 +5,7 @@ DOMAIN = "plaiiinlight"
 
 CONF_SHARE_KEY = "share_key"
 CONF_NODE = "node"
+CONF_DEVICE_ID = "device_id"
 CONF_POLL_INTERVAL = "poll_interval"
 
 DEFAULT_PORT = 80

@@ -18,6 +18,7 @@ except ImportError:
 
 from .api import LamposClient, LamposError
 from .const import (
+    CONF_DEVICE_ID,
     CONF_NODE,
     CONF_POLL_INTERVAL,
     CONF_SHARE_KEY,
@@ -46,6 +47,7 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
         self._host: str | None = None
         self._port: int = DEFAULT_PORT
         self._node: str | None = None
+        self._device_id: str | None = None
 
     def _client(self, share_key: str | None = None) -> LamposClient:
         return LamposClient(
@@ -58,9 +60,28 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_PORT: self._port,
             CONF_NODE: self._node,
         }
+        if self._device_id:
+            data[CONF_DEVICE_ID] = self._device_id
         if share_key:
             data[CONF_SHARE_KEY] = share_key
         return data
+
+    def _find_renamed_lamp_entry(self) -> ConfigEntry | None:
+        """A device id match on a different unique_id means an
+        already-configured lamp announced itself under a new node name
+        (renamed on-device). The existing entry keeps its node-name
+        unique_id (no registry migration); the caller should update its
+        host/port and abort instead of creating a duplicate entry.
+        """
+        if not self._device_id:
+            return None
+        for entry in self._async_current_entries(include_ignore=False):
+            if (
+                entry.data.get(CONF_DEVICE_ID) == self._device_id
+                and entry.unique_id != self._device_id
+            ):
+                return entry
+        return None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Manual add by host."""
@@ -75,7 +96,19 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 self._node = device.node_name
-                await self.async_set_unique_id(self._node)
+                self._device_id = device.device_id
+                renamed_entry = self._find_renamed_lamp_entry()
+                if renamed_entry is not None:
+                    self.hass.config_entries.async_update_entry(
+                        renamed_entry,
+                        data={
+                            **renamed_entry.data,
+                            CONF_HOST: self._host,
+                            CONF_PORT: self._port,
+                        },
+                    )
+                    return self.async_abort(reason="already_configured")
+                await self.async_set_unique_id(self._device_id or self._node)
                 self._abort_if_unique_id_configured(
                     updates={CONF_HOST: self._host, CONF_PORT: self._port}
                 )
@@ -111,10 +144,23 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo):
         """A lamp announced itself via mDNS."""
         node = discovery_info.properties.get("node") or discovery_info.name.split(".")[0]
+        device_id = discovery_info.properties.get("id") or ""
         self._host = discovery_info.host
         self._port = discovery_info.port or DEFAULT_PORT
         self._node = node
-        await self.async_set_unique_id(node)
+        self._device_id = device_id
+        renamed_entry = self._find_renamed_lamp_entry()
+        if renamed_entry is not None:
+            self.hass.config_entries.async_update_entry(
+                renamed_entry,
+                data={
+                    **renamed_entry.data,
+                    CONF_HOST: self._host,
+                    CONF_PORT: self._port,
+                },
+            )
+            return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(device_id or node)
         self._abort_if_unique_id_configured(
             updates={CONF_HOST: self._host, CONF_PORT: self._port}
         )

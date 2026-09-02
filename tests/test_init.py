@@ -3,10 +3,16 @@ from datetime import timedelta
 
 import aiohttp
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
+from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
-from .conftest import BASE, mock_lamp_api, setup_entry
+from custom_components.plaiiinlight.const import CONF_DEVICE_ID, CONF_NODE, DOMAIN
+
+from .conftest import BASE, DEVICE_JSON, HOST, mock_lamp_api, setup_entry
 
 
 async def test_setup_and_unload(hass, aioclient_mock, config_entry):
@@ -37,6 +43,25 @@ async def test_auth_failure_at_setup_starts_reauth(hass, aioclient_mock, config_
     flows = hass.config_entries.flow.async_progress()
     assert len(flows) == 1
     assert flows[0]["context"]["source"] == SOURCE_REAUTH
+
+
+async def test_setup_learns_device_id_and_follows_title(hass, aioclient_mock):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="old",
+        title="old",
+        data={CONF_HOST: HOST, CONF_PORT: 80, CONF_NODE: "old"},
+    )
+    device_json = {**DEVICE_JSON, "nodeName": "new", "deviceId": "abc123abc123"}
+    mock_lamp_api(aioclient_mock, device=device_json)
+
+    await setup_entry(hass, entry)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.data[CONF_DEVICE_ID] == "abc123abc123"
+    assert entry.title == "new"
+    # unique_id of an already-configured entry is never migrated
+    assert entry.unique_id == "old"
 
 
 async def test_reconnect_refreshes_device_and_effects(hass, aioclient_mock, config_entry):

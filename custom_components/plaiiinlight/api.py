@@ -46,6 +46,7 @@ class LampDevice:
     lamp_form: str
     firmware_version: str
     vendor: str
+    device_id: str = ""
 
 
 @dataclass(slots=True)
@@ -116,6 +117,7 @@ class LamposClient:
             lamp_form=str(data.get("lampForm", "")),
             firmware_version=str(data.get("firmwareVersion", "")),
             vendor=str(data.get("vendor", "")),
+            device_id=str(data.get("deviceId") or ""),
         )
 
     async def get_whoami(self) -> WhoAmI:

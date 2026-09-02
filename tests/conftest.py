@@ -48,10 +48,11 @@ def mock_lamp_api(
     state: dict[str, Any] | None = None,
     whoami: dict[str, Any] | None = None,
     js: dict[str, Any] | None = None,
+    device: dict[str, Any] | None = None,
 ) -> None:
     """Register the lamp's HTTP endpoints on the mocked session."""
     ok = {"status": "ok"}
-    aioclient_mock.get(f"{BASE}/api", json=DEVICE_JSON)
+    aioclient_mock.get(f"{BASE}/api", json=device or DEVICE_JSON)
     aioclient_mock.get(f"{BASE}/api/state", json=state or STATE_JSON)
     aioclient_mock.get(f"{BASE}/api/js", json=js or JS_JSON)
     aioclient_mock.get(f"{BASE}/api/whoami", json=whoami or WHOAMI_UNPAIRED)

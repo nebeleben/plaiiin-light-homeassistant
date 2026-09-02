@@ -11,6 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 # where homeassistant.helpers.service_info.zeroconf doesn't exist yet.
 from custom_components.plaiiinlight.config_flow import ZeroconfServiceInfo
 from custom_components.plaiiinlight.const import (
+    CONF_DEVICE_ID,
     CONF_NODE,
     CONF_POLL_INTERVAL,
     CONF_SHARE_KEY,
@@ -111,23 +112,31 @@ async def test_user_flow_duplicate_aborts_and_updates_host(
     assert config_entry.data[CONF_HOST] == "192.168.1.99"
 
 
-def zeroconf_info(paired: str = "0", host: str = HOST) -> ZeroconfServiceInfo:
+def zeroconf_info(
+    paired: str = "0",
+    host: str = HOST,
+    node: str = NODE,
+    device_id: str = "",
+) -> ZeroconfServiceInfo:
+    properties = {
+        "vendor": "plaiiin",
+        "node": node,
+        "fw": "1.9.10",
+        "api": "1",
+        "lamp": "tower",
+        "path": "/",
+        "paired": paired,
+    }
+    if device_id:
+        properties["id"] = device_id
     return ZeroconfServiceInfo(
         ip_address=ip_address(host),
         ip_addresses=[ip_address(host)],
-        hostname=f"{NODE}.local.",
-        name=f"{NODE}._plaiiinlight._tcp.local.",
+        hostname=f"{node}.local.",
+        name=f"{node}._plaiiinlight._tcp.local.",
         port=80,
         type="_plaiiinlight._tcp.local.",
-        properties={
-            "vendor": "plaiiin",
-            "node": NODE,
-            "fw": "1.9.10",
-            "api": "1",
-            "lamp": "tower",
-            "path": "/",
-            "paired": paired,
-        },
+        properties=properties,
     )
 
 
@@ -173,6 +182,50 @@ async def test_zeroconf_known_lamp_aborts_and_updates_host(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert config_entry.data[CONF_HOST] == "192.168.1.99"
+
+
+async def test_zeroconf_with_id_uses_id_as_unique_id(hass, aioclient_mock):
+    mock_lamp_api(aioclient_mock)
+    result = await start_zeroconf_flow(hass, zeroconf_info(device_id="abc123abc123"))
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == "abc123abc123"
+    assert result["data"][CONF_DEVICE_ID] == "abc123abc123"
+
+
+async def test_zeroconf_without_id_keys_by_node(hass, aioclient_mock):
+    mock_lamp_api(aioclient_mock)
+    result = await start_zeroconf_flow(hass, zeroconf_info())
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == NODE
+    assert CONF_DEVICE_ID not in result["data"]
+
+
+async def test_zeroconf_rename_of_configured_lamp_aborts_and_updates_host(
+    hass, aioclient_mock
+):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="old",
+        title="old",
+        data={CONF_HOST: "1.1.1.1", CONF_PORT: 80, CONF_DEVICE_ID: "abc123abc123"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await start_zeroconf_flow(
+        hass,
+        zeroconf_info(node="new", device_id="abc123abc123", host="192.168.1.99"),
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_HOST] == "192.168.1.99"
+    assert entry.unique_id == "old"
 
 
 async def test_reauth_flow_replaces_share_key(hass, aioclient_mock):
