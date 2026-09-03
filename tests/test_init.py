@@ -60,6 +60,9 @@ async def test_setup_learns_device_id_and_follows_title(hass, aioclient_mock):
     assert entry.state is ConfigEntryState.LOADED
     assert entry.data[CONF_DEVICE_ID] == "abc123abc123"
     assert entry.title == "new"
+    # CONF_NODE follows the title so a later reauth flow (which reads
+    # CONF_NODE, falling back to the title) shows the current name.
+    assert entry.data[CONF_NODE] == "new"
     # unique_id of an already-configured entry is never migrated
     assert entry.unique_id == "old"
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
+    ConfigFlow,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -66,22 +71,38 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
             data[CONF_SHARE_KEY] = share_key
         return data
 
-    def _find_renamed_lamp_entry(self) -> ConfigEntry | None:
+    def _dedupe_renamed_lamp(self) -> bool:
         """A device id match on a different unique_id means an
         already-configured lamp announced itself under a new node name
         (renamed on-device). The existing entry keeps its node-name
-        unique_id (no registry migration); the caller should update its
-        host/port and abort instead of creating a duplicate entry.
+        unique_id (no registry migration); update its host/port and
+        schedule a reload if it's live, mirroring
+        `_abort_if_unique_id_configured`'s own reload-on-update
+        behavior. The caller should abort instead of creating a
+        duplicate entry when this returns True.
         """
         if not self._device_id:
-            return None
+            return False
         for entry in self._async_current_entries(include_ignore=False):
             if (
                 entry.data.get(CONF_DEVICE_ID) == self._device_id
                 and entry.unique_id != self._device_id
             ):
-                return entry
-        return None
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    data={
+                        **entry.data,
+                        CONF_HOST: self._host,
+                        CONF_PORT: self._port,
+                    },
+                )
+                if entry.state in (
+                    ConfigEntryState.LOADED,
+                    ConfigEntryState.SETUP_RETRY,
+                ):
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return True
+        return False
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Manual add by host."""
@@ -97,16 +118,7 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 self._node = device.node_name
                 self._device_id = device.device_id
-                renamed_entry = self._find_renamed_lamp_entry()
-                if renamed_entry is not None:
-                    self.hass.config_entries.async_update_entry(
-                        renamed_entry,
-                        data={
-                            **renamed_entry.data,
-                            CONF_HOST: self._host,
-                            CONF_PORT: self._port,
-                        },
-                    )
+                if self._dedupe_renamed_lamp():
                     return self.async_abort(reason="already_configured")
                 await self.async_set_unique_id(self._device_id or self._node)
                 self._abort_if_unique_id_configured(
@@ -149,16 +161,7 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
         self._port = discovery_info.port or DEFAULT_PORT
         self._node = node
         self._device_id = device_id
-        renamed_entry = self._find_renamed_lamp_entry()
-        if renamed_entry is not None:
-            self.hass.config_entries.async_update_entry(
-                renamed_entry,
-                data={
-                    **renamed_entry.data,
-                    CONF_HOST: self._host,
-                    CONF_PORT: self._port,
-                },
-            )
+        if self._dedupe_renamed_lamp():
             return self.async_abort(reason="already_configured")
         await self.async_set_unique_id(device_id or node)
         self._abort_if_unique_id_configured(

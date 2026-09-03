@@ -1,8 +1,10 @@
 """Tests for the config flow."""
 from ipaddress import ip_address
+from unittest.mock import patch
 
 import aiohttp
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -226,6 +228,39 @@ async def test_zeroconf_rename_of_configured_lamp_aborts_and_updates_host(
     assert result["reason"] == "already_configured"
     assert entry.data[CONF_HOST] == "192.168.1.99"
     assert entry.unique_id == "old"
+
+
+async def test_zeroconf_rename_of_loaded_lamp_schedules_reload(hass, aioclient_mock):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="old",
+        title=NODE,
+        data={
+            CONF_HOST: HOST,
+            CONF_PORT: 80,
+            CONF_NODE: NODE,
+            CONF_DEVICE_ID: "abc123abc123",
+        },
+    )
+    mock_lamp_api(aioclient_mock)
+    await setup_entry(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+
+    with patch.object(
+        hass.config_entries,
+        "async_schedule_reload",
+        wraps=hass.config_entries.async_schedule_reload,
+    ) as mock_reload:
+        result = await start_zeroconf_flow(
+            hass,
+            zeroconf_info(node="new", device_id="abc123abc123", host="192.168.1.99"),
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_HOST] == "192.168.1.99"
+    mock_reload.assert_called_once_with(entry.entry_id)
 
 
 async def test_reauth_flow_replaces_share_key(hass, aioclient_mock):

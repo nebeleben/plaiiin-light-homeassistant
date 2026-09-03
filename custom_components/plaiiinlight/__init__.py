@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import LamposClient
-from .const import CONF_DEVICE_ID, CONF_SHARE_KEY, DEFAULT_PORT
+from .const import CONF_DEVICE_ID, CONF_NODE, CONF_SHARE_KEY, DEFAULT_PORT
 from .coordinator import PlaiiinLightConfigEntry, PlaiiinLightCoordinator
 
 PLATFORMS: list[Platform] = [Platform.LIGHT]
@@ -40,6 +40,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: PlaiiinLightConfigEntry)
             if device.node_name and device.node_name != entry.title
             else None
         )
+        if new_title and entry.data.get(CONF_NODE) != device.node_name:
+            # Follow the node into entry data too, so a later reauth
+            # (which reads CONF_NODE, falling back to the title) shows
+            # the current name rather than the stale pre-rename one.
+            data_updates[CONF_NODE] = device.node_name
         if data_updates or new_title:
             hass.config_entries.async_update_entry(
                 entry,
