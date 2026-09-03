@@ -263,6 +263,47 @@ async def test_zeroconf_rename_of_loaded_lamp_schedules_reload(hass, aioclient_m
     mock_reload.assert_called_once_with(entry.entry_id)
 
 
+async def test_zeroconf_unchanged_reannounce_of_loaded_lamp_does_not_reload(
+    hass, aioclient_mock
+):
+    """A routine mDNS re-announcement of an already-configured, unrenamed
+    lamp matches the same device-id/unique-id-mismatch condition as an
+    actual rename (a legacy node-keyed entry that has learned its device
+    id matches on every re-announcement). It must not flap the entity by
+    scheduling a reload when nothing has actually changed.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="old",
+        title=NODE,
+        data={
+            CONF_HOST: HOST,
+            CONF_PORT: 80,
+            CONF_NODE: NODE,
+            CONF_DEVICE_ID: "abc123abc123",
+        },
+    )
+    mock_lamp_api(aioclient_mock)
+    await setup_entry(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+
+    with patch.object(
+        hass.config_entries,
+        "async_schedule_reload",
+        wraps=hass.config_entries.async_schedule_reload,
+    ) as mock_reload:
+        result = await start_zeroconf_flow(
+            hass,
+            zeroconf_info(node=NODE, device_id="abc123abc123", host=HOST),
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_HOST] == HOST
+    mock_reload.assert_not_called()
+
+
 async def test_reauth_flow_replaces_share_key(hass, aioclient_mock):
     entry = MockConfigEntry(
         domain=DOMAIN,

@@ -35,16 +35,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: PlaiiinLightConfigEntry)
         data_updates: dict[str, Any] = {}
         if device.device_id and not entry.data.get(CONF_DEVICE_ID):
             data_updates[CONF_DEVICE_ID] = device.device_id
+        if device.node_name and entry.data.get(CONF_NODE) != device.node_name:
+            # Follow the node into entry data, independently of the
+            # title check below, so a later reauth (which reads
+            # CONF_NODE, falling back to the title) shows the current
+            # name rather than a stale one -- including self-healing
+            # an entry whose title was already following but whose
+            # CONF_NODE fell behind for some other reason.
+            data_updates[CONF_NODE] = device.node_name
         new_title = (
             device.node_name
             if device.node_name and device.node_name != entry.title
             else None
         )
-        if new_title and entry.data.get(CONF_NODE) != device.node_name:
-            # Follow the node into entry data too, so a later reauth
-            # (which reads CONF_NODE, falling back to the title) shows
-            # the current name rather than the stale pre-rename one.
-            data_updates[CONF_NODE] = device.node_name
         if data_updates or new_title:
             hass.config_entries.async_update_entry(
                 entry,

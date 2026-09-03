@@ -67,6 +67,30 @@ async def test_setup_learns_device_id_and_follows_title(hass, aioclient_mock):
     assert entry.unique_id == "old"
 
 
+async def test_setup_self_heals_stale_conf_node_when_title_already_current(
+    hass, aioclient_mock
+):
+    """CONF_NODE must be kept in sync with the lamp's node name
+    independently of whether the title needs following -- e.g. an entry
+    whose title already matches (perhaps followed on a prior setup) but
+    whose CONF_NODE fell behind should self-heal on the next setup.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="old",
+        title="new",
+        data={CONF_HOST: HOST, CONF_PORT: 80, CONF_NODE: "old"},
+    )
+    device_json = {**DEVICE_JSON, "nodeName": "new"}
+    mock_lamp_api(aioclient_mock, device=device_json)
+
+    await setup_entry(hass, entry)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.title == "new"
+    assert entry.data[CONF_NODE] == "new"
+
+
 async def test_reconnect_refreshes_device_and_effects(hass, aioclient_mock, config_entry):
     mock_lamp_api(aioclient_mock)
     await setup_entry(hass, config_entry)

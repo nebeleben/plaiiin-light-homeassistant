@@ -74,11 +74,18 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
     def _dedupe_renamed_lamp(self) -> bool:
         """A device id match on a different unique_id means an
         already-configured lamp announced itself under a new node name
-        (renamed on-device). The existing entry keeps its node-name
-        unique_id (no registry migration); update its host/port and
-        schedule a reload if it's live, mirroring
+        (renamed on-device) -- or, just as commonly, the *same*
+        already-announced lamp re-announcing itself unchanged (e.g. a
+        routine mDNS refresh): the match condition alone can't tell
+        those apart, since a legacy node-keyed entry that has learned
+        its device id matches on every re-announcement. Update the
+        entry's host/port and, mirroring
         `_abort_if_unique_id_configured`'s own reload-on-update
-        behavior. The caller should abort instead of creating a
+        behavior, only schedule a reload when `async_update_entry`
+        reports the data actually changed (i.e. this really was a
+        rename/move, not a no-op refresh) and the entry is live. The
+        existing entry keeps its node-name unique_id (no registry
+        migration). The caller should abort instead of creating a
         duplicate entry when this returns True.
         """
         if not self._device_id:
@@ -88,7 +95,7 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
                 entry.data.get(CONF_DEVICE_ID) == self._device_id
                 and entry.unique_id != self._device_id
             ):
-                self.hass.config_entries.async_update_entry(
+                changed = self.hass.config_entries.async_update_entry(
                     entry,
                     data={
                         **entry.data,
@@ -96,7 +103,7 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_PORT: self._port,
                     },
                 )
-                if entry.state in (
+                if changed and entry.state in (
                     ConfigEntryState.LOADED,
                     ConfigEntryState.SETUP_RETRY,
                 ):
