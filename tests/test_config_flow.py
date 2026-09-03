@@ -209,6 +209,58 @@ async def test_zeroconf_without_id_keys_by_node(hass, aioclient_mock):
     assert CONF_DEVICE_ID not in result["data"]
 
 
+async def test_zeroconf_legacy_entry_without_device_id_learns_and_aborts(
+    hass, aioclient_mock
+):
+    """An entry created before device ids existed has no stored
+    CONF_DEVICE_ID until a successful setup. Once the lamp OTAs to
+    firmware that announces an `id`, the first-arm (device-id) match in
+    `_dedupe_renamed_lamp` can't fire -- match by node name instead,
+    learn the device id into the entry, and abort instead of surfacing
+    a spurious discovery card / duplicate entry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="tower-1",
+        title="tower-1",
+        data={CONF_HOST: HOST, CONF_PORT: 80},
+    )
+    entry.add_to_hass(hass)
+
+    result = await start_zeroconf_flow(
+        hass,
+        zeroconf_info(node="tower-1", device_id="abc123abc123"),
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_DEVICE_ID] == "abc123abc123"
+    assert entry.unique_id == "tower-1"
+
+
+async def test_zeroconf_legacy_paired_entry_without_device_id_does_not_ask_share_key(
+    hass, aioclient_mock
+):
+    """The learn-and-abort dedupe must happen before the paired branch
+    would otherwise ask for a share key -- a legacy entry re-announcing
+    itself as paired should not surface any form at all.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="tower-1",
+        title="tower-1",
+        data={CONF_HOST: HOST, CONF_PORT: 80},
+    )
+    entry.add_to_hass(hass)
+
+    result = await start_zeroconf_flow(
+        hass,
+        zeroconf_info(node="tower-1", device_id="abc123abc123", paired="1"),
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_DEVICE_ID] == "abc123abc123"
+
+
 async def test_zeroconf_rename_of_configured_lamp_aborts_and_updates_host(
     hass, aioclient_mock
 ):

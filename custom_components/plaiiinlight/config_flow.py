@@ -87,6 +87,19 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
         existing entry keeps its node-name unique_id (no registry
         migration). The caller should abort instead of creating a
         duplicate entry when this returns True.
+
+        A second arm handles a legacy entry that predates this
+        version: it has no stored `CONF_DEVICE_ID` at all (it only
+        learns one on a successful setup), so the first arm's match
+        never fires for it. Match such an entry by node name instead
+        (its unique_id or stored `CONF_NODE`, whichever was used to
+        create it) and *learn* the announced device id into it, along
+        with host/port, so subsequent announcements match on the first
+        arm. This must run before the unique_id match below, since a
+        legacy entry's unique_id is the node name, not a device id --
+        `async_set_unique_id(device_id)` would not collide with it and
+        the flow would otherwise proceed to a spurious discovery card
+        or duplicate entry.
         """
         if not self._device_id:
             return False
@@ -99,6 +112,25 @@ class PlaiiinLightConfigFlow(ConfigFlow, domain=DOMAIN):
                     entry,
                     data={
                         **entry.data,
+                        CONF_HOST: self._host,
+                        CONF_PORT: self._port,
+                    },
+                )
+                if changed and entry.state in (
+                    ConfigEntryState.LOADED,
+                    ConfigEntryState.SETUP_RETRY,
+                ):
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return True
+            if not entry.data.get(CONF_DEVICE_ID) and (
+                entry.unique_id == self._node
+                or entry.data.get(CONF_NODE) == self._node
+            ):
+                changed = self.hass.config_entries.async_update_entry(
+                    entry,
+                    data={
+                        **entry.data,
+                        CONF_DEVICE_ID: self._device_id,
                         CONF_HOST: self._host,
                         CONF_PORT: self._port,
                     },
