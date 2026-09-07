@@ -32,8 +32,27 @@ async def test_get_device(hass, aioclient_mock):
     assert device.node_name == "plaiiinlight-tower"
     assert device.led_count == 4
     assert device.lamp_form == "tower"
+    assert device.model_version == "8v2"
+    assert device.model == "tower8v2"
     assert device.firmware_version == "1.9.10"
     assert device.vendor == "plaiiin"
+
+
+async def test_get_device_without_model_version(hass, aioclient_mock):
+    """Older firmware omits modelVersion: the model is just the form."""
+    payload = {k: v for k, v in DEVICE_JSON.items() if k != "modelVersion"}
+    aioclient_mock.get(f"{BASE}/api", json=payload)
+    device = await make_client(hass).get_device()
+    assert device.lamp_form == "tower"
+    assert device.model_version == ""
+    assert device.model == "tower"
+
+
+async def test_get_device_with_empty_model_version(hass, aioclient_mock):
+    aioclient_mock.get(f"{BASE}/api", json={**DEVICE_JSON, "modelVersion": ""})
+    device = await make_client(hass).get_device()
+    assert device.model_version == ""
+    assert device.model == "tower"
 
 
 async def test_share_key_sends_bearer_header(hass, aioclient_mock):

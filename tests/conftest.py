@@ -21,6 +21,7 @@ DEVICE_JSON: dict[str, Any] = {
     "nodeName": NODE,
     "ledCount": 4,
     "lampForm": "tower",
+    "modelVersion": "8v2",
     "lampType": "ws2812",
 }
 STATE_JSON: dict[str, Any] = {

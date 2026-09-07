@@ -47,6 +47,15 @@ class LampDevice:
     firmware_version: str
     vendor: str
     device_id: str = ""
+    model_version: str = ""
+
+    @property
+    def model(self) -> str:
+        """Lamp model: form plus hardware revision, e.g. "tower" + "8v2".
+
+        Older firmware omits modelVersion, then the model is just the form.
+        """
+        return f"{self.lamp_form}{self.model_version}"
 
 
 @dataclass(slots=True)
@@ -118,6 +127,7 @@ class LamposClient:
             firmware_version=str(data.get("firmwareVersion", "")),
             vendor=str(data.get("vendor", "")),
             device_id=str(data.get("deviceId") or ""),
+            model_version=str(data.get("modelVersion") or ""),
         )
 
     async def get_whoami(self) -> WhoAmI:

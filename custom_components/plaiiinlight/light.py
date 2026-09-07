@@ -50,7 +50,7 @@ class PlaiiinLightLight(CoordinatorEntity[PlaiiinLightCoordinator], LightEntity)
             identifiers={(DOMAIN, self._attr_unique_id)},
             name=entry.title,
             manufacturer=device.vendor if device else "plaiiin",
-            model=device.lamp_form if device else None,
+            model=(device.model or None) if device else None,
             sw_version=device.firmware_version if device else None,
         )
 
