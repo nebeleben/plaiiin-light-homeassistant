@@ -32,25 +32,45 @@ async def test_get_device(hass, aioclient_mock):
     assert device.node_name == "plaiiinlight-tower"
     assert device.led_count == 4
     assert device.lamp_form == "tower"
-    assert device.model_version == "8v2"
+    assert device.model_name == "tower8"
+    assert device.model_version == "v2"
     assert device.model == "tower8v2"
     assert device.firmware_version == "1.9.10"
     assert device.vendor == "plaiiin"
 
 
-async def test_get_device_without_model_version(hass, aioclient_mock):
-    """Older firmware omits modelVersion: the model is just the form."""
-    payload = {k: v for k, v in DEVICE_JSON.items() if k != "modelVersion"}
+async def test_get_device_without_model_fields(hass, aioclient_mock):
+    """Older firmware omits modelName and modelVersion: the model is just the form."""
+    payload = {k: v for k, v in DEVICE_JSON.items() if k not in ("modelName", "modelVersion")}
     aioclient_mock.get(f"{BASE}/api", json=payload)
     device = await make_client(hass).get_device()
     assert device.lamp_form == "tower"
+    assert device.model_name == ""
     assert device.model_version == ""
     assert device.model == "tower"
 
 
-async def test_get_device_with_empty_model_version(hass, aioclient_mock):
-    aioclient_mock.get(f"{BASE}/api", json={**DEVICE_JSON, "modelVersion": ""})
+async def test_get_device_without_model_name_falls_back_to_form(hass, aioclient_mock):
+    """No modelName but an (empty) modelVersion: lampForm names the model."""
+    payload = {k: v for k, v in DEVICE_JSON.items() if k != "modelName"}
+    aioclient_mock.get(f"{BASE}/api", json={**payload, "modelVersion": ""})
     device = await make_client(hass).get_device()
+    assert device.model_name == ""
+    assert device.model_version == ""
+    assert device.model == "tower"
+
+
+async def test_get_device_form_fallback_keeps_model_version(hass, aioclient_mock):
+    payload = {k: v for k, v in DEVICE_JSON.items() if k != "modelName"}
+    aioclient_mock.get(f"{BASE}/api", json=payload)
+    device = await make_client(hass).get_device()
+    assert device.model == "towerv2"
+
+
+async def test_get_device_with_empty_model_name_and_version(hass, aioclient_mock):
+    aioclient_mock.get(f"{BASE}/api", json={**DEVICE_JSON, "modelName": "", "modelVersion": ""})
+    device = await make_client(hass).get_device()
+    assert device.model_name == ""
     assert device.model_version == ""
     assert device.model == "tower"
 

@@ -52,7 +52,7 @@ async def test_state_mapping(hass, aioclient_mock, config_entry):
     assert state.attributes[ATTR_EFFECT_LIST] == ["Solid", "aurora", "sparkle"]
 
 
-async def test_device_model_is_form_plus_model_version(hass, aioclient_mock, config_entry):
+async def test_device_model_is_model_name_plus_version(hass, aioclient_mock, config_entry):
     mock_lamp_api(aioclient_mock)
     await setup_entry(hass, config_entry)
     device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, NODE)})
@@ -62,10 +62,10 @@ async def test_device_model_is_form_plus_model_version(hass, aioclient_mock, con
     assert device.sw_version == "1.9.10"
 
 
-async def test_device_model_falls_back_to_form_without_model_version(
+async def test_device_model_falls_back_to_form_without_model_fields(
     hass, aioclient_mock, config_entry
 ):
-    payload = {k: v for k, v in DEVICE_JSON.items() if k != "modelVersion"}
+    payload = {k: v for k, v in DEVICE_JSON.items() if k not in ("modelName", "modelVersion")}
     mock_lamp_api(aioclient_mock, device=payload)
     await setup_entry(hass, config_entry)
     device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, NODE)})
