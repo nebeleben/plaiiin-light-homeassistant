@@ -3,7 +3,7 @@
   "name": "PlaiiinLight",
   "codeowners": ["@nebeleben"],
   "config_flow": true,
-  "documentation": "https://github.com/nebeleben/plaiiin-light-homeassistant",
+  "documentation": "https://plaiiin-light.com/integrations.html",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/nebeleben/plaiiin-light-homeassistant/issues",
