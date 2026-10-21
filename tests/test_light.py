@@ -52,10 +52,26 @@ async def test_state_mapping(hass, aioclient_mock, config_entry):
     assert state.attributes[ATTR_EFFECT_LIST] == ["Solid", "aurora", "sparkle"]
 
 
+def lamp_device(hass, config_entry) -> dr.DeviceEntry | None:
+    """The lamp's device entry, found through its config entry.
+
+    DeviceRegistry.async_get_device(identifiers=...) is deprecated in current
+    HA (identifiers are no longer unique across config entries) and the test
+    harness turns the deprecation into an error; the replacement lookups don't
+    exist on the declared minimum HA 2025.1. Listing the config entry's devices
+    works on both.
+    """
+    registry = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(registry, config_entry.entry_id):
+        if (DOMAIN, NODE) in device.identifiers:
+            return device
+    return None
+
+
 async def test_device_model_is_model_name_plus_version(hass, aioclient_mock, config_entry):
     mock_lamp_api(aioclient_mock)
     await setup_entry(hass, config_entry)
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, NODE)})
+    device = lamp_device(hass, config_entry)
     assert device is not None
     assert device.manufacturer == "plaiiin"
     assert device.model == "tower8v2"
@@ -68,7 +84,7 @@ async def test_device_model_falls_back_to_form_without_model_fields(
     payload = {k: v for k, v in DEVICE_JSON.items() if k not in ("modelName", "modelVersion")}
     mock_lamp_api(aioclient_mock, device=payload)
     await setup_entry(hass, config_entry)
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, NODE)})
+    device = lamp_device(hass, config_entry)
     assert device is not None
     assert device.model == "tower"
 
