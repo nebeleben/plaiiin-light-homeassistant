@@ -45,6 +45,12 @@ One light entity per lamp with:
 - Brightness
 - Effect dropdown: **Solid** plus every effect on the lamp
 
+Plus one **scene** entity per scene saved on the lamp (firmware 2.6.0 or
+newer). Activating it applies that scene — effect, tunes, color and
+brightness — and leaves the lamp's power as it is. Scenes are made and
+edited in the PlaiiinLight app; new ones appear in Home Assistant within a
+minute or so, deleted ones are removed.
+
 ## Options
 
 *Settings → Devices & Services → PlaiiinLight → Configure*: poll interval

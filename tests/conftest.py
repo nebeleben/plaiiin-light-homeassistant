@@ -34,6 +34,12 @@ STATE_JSON: dict[str, Any] = {
     "fps": 0,
 }
 JS_JSON: dict[str, Any] = {"scripts": ["aurora", "sparkle"], "playing": None}
+SCENES_JSON: dict[str, Any] = {
+    "scenes": [
+        {"name": "evening", "scene": {"mode": "js", "script": "aurora", "brightness": 80}},
+        {"name": "reading", "scene": {"mode": "api", "color": [255, 220, 180]}},
+    ]
+}
 WHOAMI_UNPAIRED = {"role": "admin", "paired": False}
 WHOAMI_USER = {"role": "user", "paired": True}
 WHOAMI_NONE = {"role": "none", "paired": True}
@@ -51,6 +57,8 @@ def mock_lamp_api(
     whoami: dict[str, Any] | None = None,
     js: dict[str, Any] | None = None,
     device: dict[str, Any] | None = None,
+    scenes: dict[str, Any] | None = None,
+    scenes_status: int = 200,
 ) -> None:
     """Register the lamp's HTTP endpoints on the mocked session."""
     ok = {"status": "ok"}
@@ -63,6 +71,12 @@ def mock_lamp_api(
     aioclient_mock.post(f"{BASE}/api/color", json=ok)
     aioclient_mock.put(f"{BASE}/api/mode", json=ok)
     aioclient_mock.post(f"{BASE}/api/play", json=ok)
+    if scenes_status == 200:
+        aioclient_mock.get(f"{BASE}/api/scenes", json=scenes or SCENES_JSON)
+    else:
+        aioclient_mock.get(f"{BASE}/api/scenes", status=scenes_status)
+    for scene in (scenes or SCENES_JSON)["scenes"]:
+        aioclient_mock.post(f"{BASE}/api/scenes/{scene['name']}/activate", json=ok)
 
 
 @pytest.fixture

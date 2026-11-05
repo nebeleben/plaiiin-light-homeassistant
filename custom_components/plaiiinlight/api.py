@@ -26,6 +26,10 @@ class LamposAuthError(LamposError):
     """Share key missing, invalid, or revoked (HTTP 401/403)."""
 
 
+class LamposNotFoundError(LamposConnectionError):
+    """HTTP 404 — e.g. /api/scenes on firmware older than 2.6.0."""
+
+
 @dataclass(slots=True)
 class LampState:
     """Mirror of GET /api/state."""
@@ -98,6 +102,8 @@ class LamposClient:
                 ) as resp:
                     if resp.status in (401, 403):
                         raise LamposAuthError(f"{path} returned {resp.status}")
+                    if resp.status == 404:
+                        raise LamposNotFoundError(f"{path} returned 404")
                     if resp.status >= 400:
                         raise LamposConnectionError(f"{path} returned {resp.status}")
                     try:
@@ -157,3 +163,12 @@ class LamposClient:
 
     async def play_effect(self, name: str) -> None:
         await self._request("POST", "/api/play", json={"file": name})
+
+    async def list_scenes(self) -> list[str]:
+        """Names of the lamp's scenes (firmware 2.6.0+; older firmware
+        answers 404, raised as LamposNotFoundError)."""
+        data = await self._request("GET", "/api/scenes")
+        return [str(s["name"]) for s in data.get("scenes", []) if s.get("name")]
+
+    async def activate_scene(self, name: str) -> None:
+        await self._request("POST", f"/api/scenes/{name}/activate")
