@@ -1,8 +1,10 @@
 """Tests for the scene select (the lamp's active scene)."""
 from homeassistant.components.select import (
     ATTR_OPTION,
-    DOMAIN as SELECT_DOMAIN,
     SERVICE_SELECT_OPTION,
+)
+from homeassistant.components.select import (
+    DOMAIN as SELECT_DOMAIN,
 )
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNKNOWN
 
