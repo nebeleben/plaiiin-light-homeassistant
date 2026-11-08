@@ -11,7 +11,7 @@ from .api import LamposClient
 from .const import CONF_DEVICE_ID, CONF_NODE, CONF_SHARE_KEY, DEFAULT_PORT
 from .coordinator import PlaiiinLightConfigEntry, PlaiiinLightCoordinator
 
-PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SCENE]
+PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SCENE, Platform.SELECT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PlaiiinLightConfigEntry) -> bool:

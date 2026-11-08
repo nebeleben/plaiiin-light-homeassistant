@@ -39,6 +39,9 @@ class LampState:
     mode: str
     brightness: int
     current: str | None
+    # Firmware 2.6.1+: the scene last activated, while the lamp still shows
+    # it; None when there is none (or the firmware doesn't report it).
+    scene: str | None = None
 
 
 @dataclass(slots=True)
@@ -124,6 +127,7 @@ class LamposClient:
             mode=str(data.get("mode", "api")),
             brightness=int(data.get("brightness", 0)),
             current=data.get("current") or None,
+            scene=data.get("scene") or None,
         )
 
     async def get_device(self) -> LampDevice:

@@ -51,6 +51,13 @@ brightness — and leaves the lamp's power as it is. Scenes are made and
 edited in the PlaiiinLight app; new ones appear in Home Assistant within a
 minute or so, deleted ones are removed.
 
+A **Scene** select on the lamp shows which scene is showing and lets you
+pick one. With firmware 2.6.1 or newer it follows the lamp: a scene started
+from the app, from Home Assistant or from another lamp in the swarm shows
+up here, and the select goes empty once something else (another effect, a
+mode change) takes over. On older firmware it starts scenes but stays
+empty.
+
 ## Options
 
 *Settings → Devices & Services → PlaiiinLight → Configure*: poll interval
