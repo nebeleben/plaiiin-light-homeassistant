@@ -39,7 +39,7 @@ class LampState:
     mode: str
     brightness: int
     current: str | None
-    # Firmware 2.6.1+: the scene last activated, while the lamp still shows
+    # Firmware 2.7.0+: the scene last activated, while the lamp still shows
     # it; None when there is none (or the firmware doesn't report it).
     scene: str | None = None
 

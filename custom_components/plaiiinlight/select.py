@@ -1,7 +1,7 @@
 """Scene select: which of the lamp's scenes is showing, and a way to pick one.
 
 The options are the scenes saved on the lamp (firmware 2.6.0+). The current
-option is the scene the lamp reports as active (firmware 2.6.1+, "scene" in
+option is the scene the lamp reports as active (firmware 2.7.0+, "scene" in
 GET /api/state): it follows activations from the apps, from Home Assistant
 and from swarm peers, and is empty once something else takes over the lamp.
 Picking an option activates that scene. Lamps without scenes get no select.
